@@ -19,7 +19,8 @@ typedef enum {
     NVIC_PRIORITY_DELAY = 2,
     NVIC_PRIORITY_RTC = 3,
     // Accelerometer.
-    NVIC_PRIORITY_ACCELEROMETER = 0
+    NVIC_PRIORITY_ACCELEROMETER = 0,
+    NVIC_PRIORITY_BUTTON = 1
 } NVIC_priority_list_t;
 
 #endif /* __NVIC_PRIORITY_H__ */
