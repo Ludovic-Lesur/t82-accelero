@@ -11,6 +11,7 @@
 #include "i2c_address.h"
 #include "iwdg.h"
 #include "lptim.h"
+#include "maths.h"
 #include "mcu_mapping.h"
 #include "nvic.h"
 #include "nvic_priority.h"
@@ -33,9 +34,13 @@
 #define T82_ACCELERO_ARMING_TIME_SECONDS            30
 #define T82_ACCELERO_ARMING_LED_PULSE_MS            200
 #define T82_ACCELERO_ARMING_LED_PERIOD_MS           1000
+#define T82_ACCELERO_ARMING_LED_FREQUENCY_MHZ       (1000000 / T82_ACCELERO_ARMING_LED_PERIOD_MS)
+#define T82_ACCELERO_ARMING_LED_DUTY_CYCLE_PERCENT  ((MATH_PERCENT_MAX * T82_ACCELERO_ARMING_LED_PULSE_MS) / T82_ACCELERO_ARMING_LED_PERIOD_MS)
 
 #define T82_ACCELERO_ACTIVE_LED_PULSE_MS            200
 #define T82_ACCELERO_ACTIVE_LED_PERIOD_MS           3000
+#define T82_ACCELERO_ACTIVE_LED_FREQUENCY_MHZ       (1000000 / T82_ACCELERO_ACTIVE_LED_PERIOD_MS)
+#define T82_ACCELERO_ACTIVE_LED_DUTY_CYCLE_PERCENT  ((MATH_PERCENT_MAX * T82_ACCELERO_ACTIVE_LED_PULSE_MS) / T82_ACCELERO_ACTIVE_LED_PERIOD_MS)
 
 #define T82_ACCELERO_WAKE_UP_PULSE_MS               1000
 
@@ -179,6 +184,8 @@ static void _T82_ACCELERO_init_hw(void) {
     // Init delay timer.
     lptim_status = LPTIM_init(NVIC_PRIORITY_DELAY);
     LPTIM_stack_error(ERROR_BASE_LPTIM);
+    // Init accelerometer.
+    FXLS89XXXX_init();
 }
 /*******************************************************************/
 int main(void) {
@@ -198,6 +205,7 @@ int main(void) {
             EXTI_enable_gpio_interrupt(&GPIO_T82_BUTTON);
             // T82 LED.
             GPIO_configure(&GPIO_T82_LED, GPIO_MODE_OUTPUT, GPIO_TYPE_PUSH_PULL, GPIO_SPEED_LOW, GPIO_PULL_NONE);
+            GPIO_write(&GPIO_T82_LED, 0);
             // T82 alarm.
             GPIO_write(&GPIO_T82_ALARM, 1);
             GPIO_configure(&GPIO_T82_ALARM, GPIO_MODE_OUTPUT, GPIO_TYPE_OPEN_DRAIN, GPIO_SPEED_LOW, GPIO_PULL_NONE);
@@ -219,36 +227,51 @@ int main(void) {
         case T82_ACCELERO_STATE_ARMING_CONFIRMATION:
             // Check button state.
             if (GPIO_read(&GPIO_T82_BUTTON) == 0) {
+                // Turn LED on during button press.
+                GPIO_write(&GPIO_T82_LED, 1);
                 // Check press time.
                 if (RTC_get_uptime_seconds() >= (t82_accelero_ctx.button_press_start_time + T82_ACCELERO_ARMING_PRESS_DURATION_SECONDS)) {
+                    // Start LED blinking.
+                    GPIO_write(&GPIO_T82_LED, 0);
+                    GPIO_configure(&GPIO_T82_LED, GPIO_MODE_ALTERNATE_FUNCTION, GPIO_TYPE_PUSH_PULL, GPIO_SPEED_LOW, GPIO_PULL_NONE);
+                    LPTIM_set_waveform(T82_ACCELERO_ARMING_LED_FREQUENCY_MHZ, T82_ACCELERO_ARMING_LED_DUTY_CYCLE_PERCENT);
                     // Arming confirmed.
                     t82_accelero_ctx.arming_start_time = RTC_get_uptime_seconds();
                     t82_accelero_ctx.state = T82_ACCELERO_STATE_ARMING;
                 }
             }
             else {
+                // Turn LED off.
+                GPIO_write(&GPIO_T82_LED, 0);
                 // Go back to ready.
                 t82_accelero_ctx.flags.button_pressed = 0;
                 t82_accelero_ctx.state = T82_ACCELERO_STATE_READY;
             }
             break;
         case T82_ACCELERO_STATE_ARMING:
+            // Enter stop mode.
+            PWR_enter_deepsleep_mode(PWR_DEEPSLEEP_MODE_STOP);
             // Check arming time.
             if (RTC_get_uptime_seconds() >= (t82_accelero_ctx.arming_start_time + T82_ACCELERO_ARMING_TIME_SECONDS)) {
+                // Stop LED blinking.
+                LPTIM_set_waveform(T82_ACCELERO_ARMING_LED_FREQUENCY_MHZ, 0);
                 // Enable accelerometer.
                 _T82_ACCELERO_enable_motion_irq();
+                // Start LED blinking.
+                LPTIM_set_waveform(T82_ACCELERO_ACTIVE_LED_FREQUENCY_MHZ, T82_ACCELERO_ACTIVE_LED_DUTY_CYCLE_PERCENT);
                 // Go to active mode.
                 t82_accelero_ctx.state = T82_ACCELERO_STATE_ACTIVE;
             }
-            // Blink LED.
-            GPIO_write(&GPIO_T82_LED, 1);
-            LPTIM_delay_milliseconds(T82_ACCELERO_ARMING_LED_PULSE_MS, LPTIM_DELAY_MODE_STOP);
-            GPIO_write(&GPIO_T82_LED, 0);
-            LPTIM_delay_milliseconds((T82_ACCELERO_ARMING_LED_PERIOD_MS - T82_ACCELERO_ARMING_LED_PULSE_MS), LPTIM_DELAY_MODE_STOP);
             break;
         case T82_ACCELERO_STATE_ACTIVE:
+            // Enter stop mode.
+            PWR_enter_deepsleep_mode(PWR_DEEPSLEEP_MODE_STOP);
             // Check motion interrupt.
             if (t82_accelero_ctx.flags.motion_detected != 0) {
+                // Stop LED blink.
+                LPTIM_set_waveform(T82_ACCELERO_ARMING_LED_FREQUENCY_MHZ, 0);
+                GPIO_configure(&GPIO_T82_LED, GPIO_MODE_OUTPUT, GPIO_TYPE_PUSH_PULL, GPIO_SPEED_LOW, GPIO_PULL_NONE);
+                GPIO_write(&GPIO_T82_LED, 0);
                 // Wake-up talkie-walkie.
                 GPIO_write(&GPIO_T82_ALARM, 0);
                 LPTIM_delay_milliseconds(T82_ACCELERO_WAKE_UP_PULSE_MS, LPTIM_DELAY_MODE_STOP);
@@ -257,11 +280,6 @@ int main(void) {
                 // Send alarm.
                 t82_accelero_ctx.state = T82_ACCELERO_STATE_ALARM;
             }
-            // Blink LED.
-            GPIO_write(&GPIO_T82_LED, 1);
-            LPTIM_delay_milliseconds(T82_ACCELERO_ACTIVE_LED_PULSE_MS, LPTIM_DELAY_MODE_STOP);
-            GPIO_write(&GPIO_T82_LED, 0);
-            LPTIM_delay_milliseconds((T82_ACCELERO_ACTIVE_LED_PERIOD_MS - T82_ACCELERO_ACTIVE_LED_PULSE_MS), LPTIM_DELAY_MODE_STOP);
             break;
         case T82_ACCELERO_STATE_ALARM:
             // Start alarm.
