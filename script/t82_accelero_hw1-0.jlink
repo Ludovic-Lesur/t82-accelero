@@ -1,0 +1,6 @@
+r
+loadfile hw1-0/t82-accelero.hex
+verifyfile hw1-0/t82-accelero.hex
+r
+g
+qc
