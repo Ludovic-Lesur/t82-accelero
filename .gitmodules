@@ -13,3 +13,6 @@
 [submodule "fxls89xxxx-driver"]
     path = drivers/components/fxls89xxxx-driver
     url = https://github.com/Ludovic-Lesur/fxls89xxxx-driver.git
+[submodule "cmake-arm-none-eabi"]
+    path = script/cmake-arm-none-eabi
+    url = https://github.com/Ludovic-Lesur/cmake-arm-none-eabi.git

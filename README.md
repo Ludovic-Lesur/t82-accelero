@@ -23,3 +23,17 @@ The project is organized as follow:
     * `components` : external **components** drivers.
     * `utils` : **utility** functions.
 * `application` : Main **application**.
+
+## Build
+
+The project can be compiled by command line with `cmake`.
+
+```bash
+mkdir build
+cd build
+cmake -DCMAKE_TOOLCHAIN_FILE="script/cmake-arm-none-eabi/toolchain.cmake" \
+      -DTOOLCHAIN_PATH="<arm_none_eabi_gcc_path>" \
+      -DT82_ACCELERO_HW_VERSION="<cmake_hw_version>" \
+      -G "Unix Makefiles" ..
+make all
+```
