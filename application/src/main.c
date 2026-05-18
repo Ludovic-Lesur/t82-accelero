@@ -200,7 +200,7 @@ int main(void) {
             // Clear flags.
             t82_accelero_ctx.flags.all = 0;
             // T82 button.
-            EXTI_configure_gpio(&GPIO_T82_BUTTON, GPIO_PULL_NONE, EXTI_TRIGGER_FALLING_EDGE, &_T82_ACCELERO_button_irq_callback, NVIC_PRIORITY_BUTTON);
+            EXTI_configure_gpio(&GPIO_T82_BUTTON, GPIO_PULL_UP, EXTI_TRIGGER_FALLING_EDGE, &_T82_ACCELERO_button_irq_callback, NVIC_PRIORITY_BUTTON);
             EXTI_clear_gpio_flag(&GPIO_T82_BUTTON);
             EXTI_enable_gpio_interrupt(&GPIO_T82_BUTTON);
             // T82 LED.
@@ -208,7 +208,7 @@ int main(void) {
             GPIO_write(&GPIO_T82_LED, 0);
             // T82 alarm.
             GPIO_write(&GPIO_T82_ALARM, 1);
-            GPIO_configure(&GPIO_T82_ALARM, GPIO_MODE_OUTPUT, GPIO_TYPE_OPEN_DRAIN, GPIO_SPEED_LOW, GPIO_PULL_NONE);
+            GPIO_configure(&GPIO_T82_ALARM, GPIO_MODE_OUTPUT, GPIO_TYPE_OPEN_DRAIN, GPIO_SPEED_LOW, GPIO_PULL_UP);
             // Disable accelerometer.
             _T82_ACCELERO_disable_motion_irq();
             // Compute next state.
