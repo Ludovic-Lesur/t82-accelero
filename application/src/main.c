@@ -42,6 +42,8 @@
 #define T82_ACCELERO_ACTIVE_LED_FREQUENCY_MHZ       (1000000 / T82_ACCELERO_ACTIVE_LED_PERIOD_MS)
 #define T82_ACCELERO_ACTIVE_LED_DUTY_CYCLE_PERCENT  ((MATH_PERCENT_MAX * T82_ACCELERO_ACTIVE_LED_PULSE_MS) / T82_ACCELERO_ACTIVE_LED_PERIOD_MS)
 
+#define T82_ACCELERO_MOTION_IRQ_COUNT_THRESHOLD     3
+
 #define T82_ACCELERO_WAKE_UP_PULSE_MS               1000
 
 #define T82_ACCELERO_ALARM_PULSE_MS                 5000
@@ -67,7 +69,6 @@ typedef union {
     uint8_t all;
     struct {
         unsigned button_pressed: 1;
-        unsigned motion_detected :1;
     };
 } T82_ACCELERO_flags_t;
 
@@ -77,6 +78,7 @@ typedef struct {
     volatile T82_ACCELERO_flags_t flags;
     uint32_t button_press_start_time;
     uint32_t arming_start_time;
+    uint32_t motion_irq_count;
 } T82_ACCELERO_context_t;
 
 /*** MAIN local global variables ***/
@@ -105,6 +107,14 @@ static T82_ACCELERO_context_t t82_accelero_ctx;
 /*** MAIN functions ***/
 
 /*******************************************************************/
+static void _T82_ACCELERO_rtc_wakeup_timer_irq_callback(void) {
+    // Decrement interrupt count.
+    if (t82_accelero_ctx.motion_irq_count > 0) {
+        t82_accelero_ctx.motion_irq_count--;
+    }
+}
+
+/*******************************************************************/
 static void _T82_ACCELERO_button_irq_callback(void) {
     // Set button flag.
     t82_accelero_ctx.flags.button_pressed = 1;
@@ -112,8 +122,8 @@ static void _T82_ACCELERO_button_irq_callback(void) {
 
 /*******************************************************************/
 static void _T82_ACCELERO_motion_irq_callback(void) {
-    // Set motion flag.
-    t82_accelero_ctx.flags.motion_detected = 1;
+    // Increment interrupt count.
+    t82_accelero_ctx.motion_irq_count++;
 }
 
 /*******************************************************************/
@@ -144,6 +154,7 @@ static void _T82_ACCELERO_init_context(void) {
     t82_accelero_ctx.flags.all = 0;
     t82_accelero_ctx.button_press_start_time = 0;
     t82_accelero_ctx.arming_start_time = 0;
+    t82_accelero_ctx.motion_irq_count = 0;
 }
 
 /*******************************************************************/
@@ -179,7 +190,7 @@ static void _T82_ACCELERO_init_hw(void) {
     rcc_status = RCC_calibrate_internal_clocks(NVIC_PRIORITY_CLOCK_CALIBRATION);
     RCC_stack_error(ERROR_BASE_RCC);
     // Init RTC.
-    rtc_status = RTC_init(NULL, NVIC_PRIORITY_RTC);
+    rtc_status = RTC_init(&_T82_ACCELERO_rtc_wakeup_timer_irq_callback, NVIC_PRIORITY_RTC);
     RTC_stack_error(ERROR_BASE_RTC);
     // Init delay timer.
     lptim_status = LPTIM_init(NVIC_PRIORITY_DELAY);
@@ -197,8 +208,8 @@ int main(void) {
         // Perform state machine.
         switch (t82_accelero_ctx.state) {
         case T82_ACCELERO_STATE_INIT:
-            // Clear flags.
-            t82_accelero_ctx.flags.all = 0;
+            // Reset state machine.
+            _T82_ACCELERO_init_context();
             // T82 button.
             EXTI_configure_gpio(&GPIO_T82_BUTTON, GPIO_PULL_UP, EXTI_TRIGGER_FALLING_EDGE, &_T82_ACCELERO_button_irq_callback, NVIC_PRIORITY_BUTTON);
             EXTI_clear_gpio_flag(&GPIO_T82_BUTTON);
@@ -267,7 +278,7 @@ int main(void) {
             // Enter stop mode.
             PWR_enter_deepsleep_mode(PWR_DEEPSLEEP_MODE_STOP);
             // Check motion interrupt.
-            if (t82_accelero_ctx.flags.motion_detected != 0) {
+            if (t82_accelero_ctx.motion_irq_count >= T82_ACCELERO_MOTION_IRQ_COUNT_THRESHOLD) {
                 // Stop LED blink.
                 LPTIM_set_waveform(T82_ACCELERO_ARMING_LED_FREQUENCY_MHZ, 0);
                 GPIO_configure(&GPIO_T82_LED, GPIO_MODE_OUTPUT, GPIO_TYPE_PUSH_PULL, GPIO_SPEED_LOW, GPIO_PULL_NONE);
