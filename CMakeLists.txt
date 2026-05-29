@@ -25,6 +25,15 @@ endmacro()
 # Hardware compilation flags.
 set(T82_ACCELERO_HW_VERSION "NONE" CACHE STRING "Hardware version")
 
+# Software compilation flags.
+add_compilation_flag(T82_ACCELERO_ARMING_PRESS_DURATION_SECONDS "Minimum button press duration to arm the device (s)" 5)
+add_compilation_flag(T82_ACCELERO_ARMING_TIME_SECONDS "Arming time before device activation (s)" 30)
+add_compilation_flag(T82_ACCELERO_ARMING_LED_PULSE_MS "LED blink pulse duration during arming phase (ms)" 200)
+add_compilation_flag(T82_ACCELERO_ARMING_LED_PERIOD_MS "LED blink period during arming phase (ms)" 1000)
+add_compilation_flag(T82_ACCELERO_ACTIVE_LED_PULSE_MS "LED blink pulse duration during active phase (ms)" 200)
+add_compilation_flag(T82_ACCELERO_ACTIVE_LED_PERIOD_MS "LED blink period during active phase (ms)" 3000)
+add_compilation_flag(T82_ACCELERO_MOTION_IRQ_COUNT_THRESHOLD "Number of motion interrupt(s) required to trigger the alarm" 3)
+
 # Hardware specific settings.
 # T82_ACCELERO HW1.0.
 if(T82_ACCELERO_HW_VERSION STREQUAL "HW1_0")   
