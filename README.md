@@ -34,6 +34,13 @@ cd build
 cmake -DCMAKE_TOOLCHAIN_FILE="script/cmake-arm-none-eabi/toolchain.cmake" \
       -DTOOLCHAIN_PATH="<arm_none_eabi_gcc_path>" \
       -DT82_ACCELERO_HW_VERSION="<cmake_hw_version>" \
+      -DT82_ACCELERO_ARMING_PRESS_DURATION_SECONDS=5 \
+      -DT82_ACCELERO_ARMING_TIME_SECONDS=30 \
+      -DT82_ACCELERO_ARMING_LED_PULSE_MS=200 \
+      -DT82_ACCELERO_ARMING_LED_PERIOD_MS=1000 \
+      -DT82_ACCELERO_ACTIVE_LED_PULSE_MS=200 \
+      -DT82_ACCELERO_ACTIVE_LED_PERIOD_MS=3000 \
+      -DT82_ACCELERO_MOTION_IRQ_COUNT_THRESHOLD=3 \
       -G "Unix Makefiles" ..
 make all
 ```
