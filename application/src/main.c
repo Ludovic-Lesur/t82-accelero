@@ -29,18 +29,20 @@
 
 /*** MAIN macros ***/
 
-#define T82_ACCELERO_ARMING_LED_FREQUENCY_MHZ       (1000000 / T82_ACCELERO_ARMING_LED_PERIOD_MS)
-#define T82_ACCELERO_ARMING_LED_DUTY_CYCLE_PERCENT  ((MATH_PERCENT_MAX * T82_ACCELERO_ARMING_LED_PULSE_MS) / T82_ACCELERO_ARMING_LED_PERIOD_MS)
+#define T82_ACCELERO_ARMING_LED_FREQUENCY_MHZ               (1000000 / T82_ACCELERO_ARMING_LED_PERIOD_MS)
+#define T82_ACCELERO_ARMING_LED_DUTY_CYCLE_PERCENT          ((MATH_PERCENT_MAX * T82_ACCELERO_ARMING_LED_PULSE_MS) / T82_ACCELERO_ARMING_LED_PERIOD_MS)
 
-#define T82_ACCELERO_ACTIVE_LED_FREQUENCY_MHZ       (1000000 / T82_ACCELERO_ACTIVE_LED_PERIOD_MS)
-#define T82_ACCELERO_ACTIVE_LED_DUTY_CYCLE_PERCENT  ((MATH_PERCENT_MAX * T82_ACCELERO_ACTIVE_LED_PULSE_MS) / T82_ACCELERO_ACTIVE_LED_PERIOD_MS)
+#define T82_ACCELERO_ACTIVE_LED_FREQUENCY_MHZ               (1000000 / T82_ACCELERO_ACTIVE_LED_PERIOD_MS)
+#define T82_ACCELERO_ACTIVE_LED_DUTY_CYCLE_PERCENT          ((MATH_PERCENT_MAX * T82_ACCELERO_ACTIVE_LED_PULSE_MS) / T82_ACCELERO_ACTIVE_LED_PERIOD_MS)
 
-#define T82_ACCELERO_WAKE_UP_PULSE_MS               1000
+#define T82_ACCELERO_WAKE_UP_PULSE_MS                       1000
 
-#define T82_ACCELERO_ALARM_PULSE_MS                 5000
+#define T82_ACCELERO_ALARM_PULSE_MS                         5000
 
-#define T82_ACCELERO_CONFIGURATION_SIZE_ACTIVE      12
-#define T82_ACCELERO_CONFIGURATION_SIZE_SLEEP       1
+#define T82_ACCELERO_CONFIGURATION_SIZE_ACTIVE              12
+#define T82_ACCELERO_CONFIGURATION_SIZE_SLEEP               1
+
+#define T82_ACCELERO_MOTION_IRQ_DECREMENT_PERIOD_SECOND     10
 
 /*** MAIN structures ***/
 
@@ -67,9 +69,10 @@ typedef union {
 typedef struct {
     T82_ACCELERO_state_t state;
     volatile T82_ACCELERO_flags_t flags;
+    volatile uint32_t motion_irq_count;
+    volatile uint32_t motion_irq_decrement_time;
     uint32_t button_press_start_time;
     uint32_t arming_start_time;
-    uint32_t motion_irq_count;
 } T82_ACCELERO_context_t;
 
 /*** MAIN local global variables ***/
@@ -99,9 +102,16 @@ static T82_ACCELERO_context_t t82_accelero_ctx;
 
 /*******************************************************************/
 static void _T82_ACCELERO_rtc_wakeup_timer_irq_callback(void) {
-    // Decrement interrupt count.
-    if (t82_accelero_ctx.motion_irq_count > 0) {
-        t82_accelero_ctx.motion_irq_count--;
+    // Update time.
+    t82_accelero_ctx.motion_irq_decrement_time += STM32L0XX_DRIVERS_RTC_WAKEUP_PERIOD_SECONDS;
+    // Check period.
+    if (t82_accelero_ctx.motion_irq_decrement_time >= T82_ACCELERO_MOTION_IRQ_DECREMENT_PERIOD_SECOND) {
+        // Clear time.
+        t82_accelero_ctx.motion_irq_decrement_time = 0;
+        // Decrement interrupt count.
+        if (t82_accelero_ctx.motion_irq_count > 0) {
+            t82_accelero_ctx.motion_irq_count--;
+        }
     }
 }
 
@@ -143,9 +153,10 @@ static void _T82_ACCELERO_init_context(void) {
     // Init state machine.
     t82_accelero_ctx.state = T82_ACCELERO_STATE_INIT;
     t82_accelero_ctx.flags.all = 0;
+    t82_accelero_ctx.motion_irq_count = 0;
+    t82_accelero_ctx.motion_irq_decrement_time = 0;
     t82_accelero_ctx.button_press_start_time = 0;
     t82_accelero_ctx.arming_start_time = 0;
-    t82_accelero_ctx.motion_irq_count = 0;
 }
 
 /*******************************************************************/

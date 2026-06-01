@@ -32,7 +32,7 @@ add_compilation_flag(T82_ACCELERO_ARMING_LED_PULSE_MS "LED blink pulse duration 
 add_compilation_flag(T82_ACCELERO_ARMING_LED_PERIOD_MS "LED blink period during arming phase (ms)" 1000)
 add_compilation_flag(T82_ACCELERO_ACTIVE_LED_PULSE_MS "LED blink pulse duration during active phase (ms)" 200)
 add_compilation_flag(T82_ACCELERO_ACTIVE_LED_PERIOD_MS "LED blink period during active phase (ms)" 3000)
-add_compilation_flag(T82_ACCELERO_MOTION_IRQ_COUNT_THRESHOLD "Number of motion interrupt(s) required to trigger the alarm" 3)
+add_compilation_flag(T82_ACCELERO_MOTION_IRQ_COUNT_THRESHOLD "Number of motion interrupt(s) required to trigger the alarm" 5)
 
 # Hardware specific settings.
 # T82_ACCELERO HW1.0.
